@@ -28,6 +28,12 @@ const ART = {
 const START = {hp:70, gold:50, fame:60, yi:60, kh:50, gs:45};
 let V;
 
+/* 진행 보조 상태 — 되감기 / 기록 / 자동 / 스킵 */
+let backlog = [];      // 기록 화면용 대사 목록
+let snaps   = [];       // 되감기 스냅샷 (대기 지점마다 1개)
+let auto = false, skip = false, autoTimer = null;
+const cfg = {cps:55, autoWait:1400};
+
 function reset(){
   V = Object.assign({}, START, {
     pyemo:"", troop:"", blocked:false,
@@ -509,22 +515,92 @@ function renderLine(who, text){
   nudge.textContent = "";
   nudge.classList.remove("blink");
 
+  clearInterval(typing); typing = null;
+
+  const ms = skip ? 0 : (cfg.cps > 0 ? Math.max(8, Math.round(1000 / cfg.cps)) : 0);
+  if(ms === 0){ doneTyping(); return; }
+
   let i = 0;
-  clearInterval(typing);
   typing = setInterval(()=>{
     lineEl.textContent = text.slice(0, ++i);
     if(i >= text.length) doneTyping();
-  }, 18);
+  }, ms);
 }
 function doneTyping(){
   clearInterval(typing); typing = null;
   lineEl.textContent = fullText;
   nudge.textContent = "▼";
   nudge.classList.add("blink");
+  scheduleAuto();
+}
+
+/* 자동/스킵이 켜져 있으면 다음 대사를 예약한다 */
+function scheduleAuto(){
+  clearTimeout(autoTimer);
+  if(skip)      autoTimer = setTimeout(()=>{ if(skip) advance(); }, 45);
+  else if(auto) autoTimer = setTimeout(()=>{ if(auto) advance(); }, cfg.autoWait);
 }
 
 /* =========================================================
-   5. 인터프리터
+   5. 되감기 스냅샷
+   대기(대사·선택지) 지점마다 상태를 통째로 저장해 두고,
+   되감기 때는 재실행 없이 그 지점을 그대로 복원한다.
+   (재실행하면 난수가 다시 굴러 결과가 달라지기 때문)
+   ========================================================= */
+function snapshot(node){
+  snaps.push({
+    V: JSON.parse(JSON.stringify(V)),
+    stack: stack.map(f => ({seq:f.seq, i:f.i})),
+    node,
+    bg: curBg,
+    spr: Object.keys(SPR).map(k => ({
+      at: k,
+      on: SPR[k].classList.contains("on"),
+      src: SPR[k].getAttribute("src") || ""
+    }))
+  });
+  if(snaps.length > 200) snaps.shift();
+  syncControls();
+}
+
+function restore(s){
+  V = JSON.parse(JSON.stringify(s.V));
+  stack = s.stack.map(f => ({seq:f.seq, i:f.i}));
+  paintHud();
+
+  curBg = null;
+  setBg(s.bg || "bg_black");
+
+  s.spr.forEach(o => {
+    const el = SPR[o.at];
+    if(o.on && o.src){ el.setAttribute("src", o.src); el.classList.add("on"); }
+    else el.classList.remove("on");
+  });
+
+  choicesEl.classList.remove("on");
+  if(s.node.t === "menu"){
+    waiting = false;
+    showChoices(s.node);
+  } else {
+    renderLine(s.node.who, s.node.text);
+    doneTyping();
+    clearTimeout(autoTimer);
+    waiting = true;
+  }
+}
+
+function goBack(){
+  if(snaps.length < 2) return;
+  auto = skip = false;
+  clearTimeout(autoTimer);
+  snaps.pop();                       // 지금 보고 있는 지점을 버리고
+  if(backlog.length) backlog.pop();
+  restore(snaps[snaps.length - 1]);  // 직전 지점으로 돌아간다
+  syncControls();
+}
+
+/* =========================================================
+   6. 인터프리터
    ========================================================= */
 let stack = [], waiting = false;
 
@@ -565,10 +641,13 @@ function exec(n){
       return;
     }
     case "say":
+      snapshot(n);
+      backlog.push({who:n.who, text:n.text});
       renderLine(n.who, n.text);
       waiting = true;
       return "WAIT";
     case "menu":
+      snapshot(n);
       showChoices(n);
       return "WAIT";
     case "end":
@@ -578,6 +657,7 @@ function exec(n){
 }
 
 function advance(){
+  clearTimeout(autoTimer);
   if(!waiting) return;
   if(typing){ doneTyping(); return; }
   waiting = false;
@@ -585,6 +665,9 @@ function advance(){
 }
 
 function showChoices(n){
+  skip = false;
+  clearTimeout(autoTimer);
+  syncControls();
   plate.classList.remove("on");
   choicesEl.innerHTML = "";
   const ask = document.createElement("div");
@@ -615,8 +698,12 @@ function showChoices(n){
 }
 
 function showEnding(kind, name){
+  auto = skip = false;
+  clearTimeout(autoTimer);
+  syncControls();
   plate.classList.remove("on");
   hud.classList.remove("on");
+  $("footer").classList.remove("on");
   $("endKind").textContent = kind;
   $("endTitle").textContent = name;
   $("endRec").innerHTML =
@@ -630,6 +717,13 @@ function showEnding(kind, name){
    ========================================================= */
 function startGame(){
   reset();
+  backlog = []; snaps = [];
+  auto = skip = false;
+  clearTimeout(autoTimer);
+  syncControls();
+  $("footer").classList.add("on");
+  $("logSheet").classList.remove("on");
+  $("cfgSheet").classList.remove("on");
   titleEl.classList.remove("on");
   endingEl.classList.remove("on");
   choicesEl.classList.remove("on");
@@ -641,7 +735,9 @@ function startGame(){
 }
 
 stage.addEventListener("click", e=>{
-  if(e.target.closest("#choices") || e.target.closest(".veil")) return;
+  if(e.target.closest("#choices") || e.target.closest(".veil") ||
+     e.target.closest("#controls") || e.target.closest(".sheet")) return;
+  auto = false; syncControls();
   advance();
 });
 document.addEventListener("keydown", e=>{
@@ -651,8 +747,119 @@ document.addEventListener("keydown", e=>{
   }
 });
 
-$("startBtn").addEventListener("click", startGame);
+/* 전체화면 + 가로 잠금 — 브라우저 정책상 '사용자 조작' 안에서만 허용된다.
+   그래서 자동 진입은 불가능하고, 시작 버튼을 누를 때 같이 건다.
+   iOS 사파리는 Fullscreen API 를 지원하지 않아 조용히 넘어간다. */
+async function goFullscreen(){
+  try{
+    const el = document.documentElement;
+    if(!document.fullscreenElement && !document.webkitFullscreenElement){
+      if(el.requestFullscreen)            await el.requestFullscreen({navigationUI:"hide"});
+      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }
+  }catch(e){}
+  try{
+    if(screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape");
+  }catch(e){}
+}
+
+$("startBtn").addEventListener("click", async ()=>{ await goFullscreen(); startGame(); });
 $("againBtn").addEventListener("click", startGame);
+
+/* =========================================================
+   7. 하단 컨트롤 — 되감기 / 기록 / 자동 / 스킵 / 설정
+   ========================================================= */
+const cBack=$("cBack"), cLog=$("cLog"), cAuto=$("cAuto"), cSkip=$("cSkip"), cCfg=$("cCfg");
+const logSheet=$("logSheet"), cfgSheet=$("cfgSheet");
+
+function syncControls(){
+  cAuto.setAttribute("aria-pressed", auto ? "true" : "false");
+  cSkip.setAttribute("aria-pressed", skip ? "true" : "false");
+  cBack.disabled = snaps.length < 2;
+}
+
+cBack.addEventListener("click", goBack);
+
+cAuto.addEventListener("click", ()=>{
+  auto = !auto;
+  if(auto) skip = false;
+  syncControls();
+  if(auto && waiting && !typing) scheduleAuto();
+  else clearTimeout(autoTimer);
+});
+
+cSkip.addEventListener("click", ()=>{
+  skip = !skip;
+  if(skip) auto = false;
+  syncControls();
+  if(skip){
+    if(typing) doneTyping();
+    else if(waiting) scheduleAuto();
+  } else clearTimeout(autoTimer);
+});
+
+/* ---- 기록 ---- */
+function openLog(){
+  const body = $("logBody");
+  if(!backlog.length){
+    body.innerHTML = '<p class="log-empty">아직 지나온 대사가 없습니다.</p>';
+  } else {
+    body.innerHTML = backlog.map(r =>
+      r.who
+        ? `<div class="log-row"><b style="color:${WHO[r.who].color}">${WHO[r.who].name}</b><span>${esc(r.text)}</span></div>`
+        : `<div class="log-row nar"><b></b><span>${esc(r.text)}</span></div>`
+    ).join("");
+  }
+  logSheet.classList.add("on");
+  body.scrollTop = body.scrollHeight;
+}
+function esc(t){
+  return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+cLog.addEventListener("click", ()=>{ auto = skip = false; clearTimeout(autoTimer); syncControls(); openLog(); });
+$("logClose").addEventListener("click", ()=> logSheet.classList.remove("on"));
+
+/* ---- 설정 ---- */
+const optCps=$("optCps"), optAuto=$("optAuto"), outCps=$("outCps"), outAuto=$("outAuto");
+
+function paintCfg(){
+  optCps.value = cfg.cps;
+  optAuto.value = cfg.autoWait;
+  outCps.textContent = cfg.cps === 0 ? "즉시" : cfg.cps + "자/초";
+  outAuto.textContent = (cfg.autoWait / 1000).toFixed(1) + "초";
+}
+function saveCfg(){
+  try{ localStorage.setItem("ifjoseon.cfg", JSON.stringify(cfg)); }catch(e){}
+}
+try{
+  const raw = localStorage.getItem("ifjoseon.cfg");
+  if(raw){
+    const o = JSON.parse(raw);
+    if(typeof o.cps === "number") cfg.cps = o.cps;
+    if(typeof o.autoWait === "number") cfg.autoWait = o.autoWait;
+  }
+}catch(e){}
+
+optCps.addEventListener("input", ()=>{ cfg.cps = +optCps.value; paintCfg(); saveCfg(); });
+optAuto.addEventListener("input", ()=>{ cfg.autoWait = +optAuto.value; paintCfg(); saveCfg(); });
+cCfg.addEventListener("click", ()=>{ auto = skip = false; clearTimeout(autoTimer); syncControls(); paintCfg(); cfgSheet.classList.add("on"); });
+$("cfgClose").addEventListener("click", ()=> cfgSheet.classList.remove("on"));
+
+/* ---- 키보드 ---- */
+document.addEventListener("keydown", e=>{
+  if(titleEl.classList.contains("on") || endingEl.classList.contains("on")) return;
+  if(e.key === "Escape"){
+    logSheet.classList.remove("on");
+    cfgSheet.classList.remove("on");
+  } else if(e.key === "Control"){
+    if(!skip){ skip = true; auto = false; syncControls(); if(typing) doneTyping(); else if(waiting) scheduleAuto(); }
+  } else if(e.key === "PageUp" || e.key === "Backspace"){
+    e.preventDefault(); goBack();
+  }
+});
+document.addEventListener("keyup", e=>{
+  if(e.key === "Control"){ skip = false; clearTimeout(autoTimer); syncControls(); }
+});
 
 /* 세로 차단 — 실제 회전 잠금은 안드로이드 전체화면에서만 가능하다 */
 const rotateEl = $("rotate");
@@ -664,12 +871,7 @@ window.addEventListener("resize", checkOrient);
 window.addEventListener("orientationchange", checkOrient);
 
 $("fsBtn").addEventListener("click", async ()=>{
-  try{
-    const el = document.documentElement;
-    if(el.requestFullscreen) await el.requestFullscreen();
-    else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-    if(screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape");
-  }catch(err){ /* iOS 등 미지원 — 안내만 유지 */ }
+  await goFullscreen();
   checkOrient();
 });
 
@@ -679,6 +881,8 @@ $("logo").src = ART.title || "";
 buildHud();
 reset();
 paintHud();
+paintCfg();
+syncControls();
 checkOrient();
 
 /* 재배포 시 진행 상태 유지 */

@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0a0806">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="if조선">
+<link rel="apple-touch-icon" href="assets/title.webp">
 <meta name="description" content="광해군이 되어 폐모살제, 강홍립 파병, 인조반정을 헤쳐 나가는 조선왕조 시뮬레이션.">
 <meta property="og:title" content="if조선">
 <meta property="og:description" content="체력·재정·평판을 관리하며 세 개의 분기점을 넘는 3분 역사 시뮬레이션.">
@@ -31,13 +36,36 @@
   <div id="plate">
     <div id="who"></div>
     <div id="line"></div>
+  </div>
+  <div id="footer">
     <div id="nudge"></div>
+    <div id="controls">
+      <button class="ctl" id="cBack" type="button">되감기</button>
+      <button class="ctl" id="cLog" type="button">기록</button>
+      <button class="ctl" id="cAuto" type="button" aria-pressed="false">자동</button>
+      <button class="ctl" id="cSkip" type="button" aria-pressed="false">스킵</button>
+      <button class="ctl" id="cCfg" type="button">설정</button>
+    </div>
   </div>
   <div id="choices"></div>
   <div class="veil on" id="title">
     <img id="logo" alt="if조선">
     <button class="btn" id="startBtn">시 작</button>
     <div class="sub">가로 화면 · 화면을 눌러 진행</div>
+  </div>
+  <div class="sheet" id="logSheet">
+    <div class="sheet-head"><h2>기록</h2><button class="x" id="logClose" type="button">닫기</button></div>
+    <div class="sheet-body" id="logBody"></div>
+  </div>
+  <div class="sheet" id="cfgSheet">
+    <div class="sheet-head"><h2>설정</h2><button class="x" id="cfgClose" type="button">닫기</button></div>
+    <div class="sheet-body">
+      <label class="opt" for="optCps">글자 속도 <output id="outCps"></output>
+        <input type="range" id="optCps" min="0" max="60" step="2"></label>
+      <p class="hint">0으로 두면 대사가 한 번에 다 나옵니다.</p>
+      <label class="opt" for="optAuto">자동 넘김 간격 <output id="outAuto"></output>
+        <input type="range" id="optAuto" min="600" max="3000" step="100"></label>
+    </div>
   </div>
   <div class="veil" id="ending">
     <div id="endKind"></div>
