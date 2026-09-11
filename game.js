@@ -490,7 +490,17 @@ function paintHud(){
 }
 
 let toastTimer = null;
+
+/* 안내 문구 — 스탯 토스트와 같은 자리를 쓰되 중립 색으로 */
+function hint(text){
+  toastEl.className = "hint on";
+  toastEl.textContent = text;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ toastEl.className = ""; }, 4200);
+}
+
 function toast(msgs){
+  toastEl.className = "";
   toastEl.innerHTML = msgs.map(([l,d]) =>
     `<div class="${d>0?"up":"down"}">${l} ${d>0?"+":""}${d}</div>`).join("");
   toastEl.classList.add("on");
@@ -747,23 +757,88 @@ document.addEventListener("keydown", e=>{
   }
 });
 
-/* 전체화면 + 가로 잠금 — 브라우저 정책상 '사용자 조작' 안에서만 허용된다.
-   그래서 자동 진입은 불가능하고, 시작 버튼을 누를 때 같이 건다.
-   iOS 사파리는 Fullscreen API 를 지원하지 않아 조용히 넘어간다. */
-async function goFullscreen(){
+/* =========================================================
+   전체화면 + 가로 잠금
+
+   브라우저는 '사용자가 직접 누른 동작' 안에서만 전체화면을 허용한다.
+   그래서 requestFullscreen 은 클릭 핸들러에서 동기로 호출해야 하고,
+   await 를 먼저 걸면 제스처가 끊겨 거부되는 브라우저가 있다.
+
+   iOS(아이폰/아이패드)는 사파리·크롬·삼성인터넷 모두 사파리 엔진을 쓰는데
+   요소 전체화면 API 자체가 없다. 이 경우 '홈 화면에 추가'로 안내한다.
+   ========================================================= */
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+               (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const STANDALONE = window.navigator.standalone === true ||
+                   window.matchMedia("(display-mode: standalone)").matches;
+
+function fsAvailable(){
+  const el = document.documentElement;
+  return !!(el.requestFullscreen || el.webkitRequestFullscreen);
+}
+function isFullscreen(){
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+function lockLandscape(){
   try{
-    const el = document.documentElement;
-    if(!document.fullscreenElement && !document.webkitFullscreenElement){
-      if(el.requestFullscreen)            await el.requestFullscreen({navigationUI:"hide"});
-      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    if(screen.orientation && screen.orientation.lock){
+      const r = screen.orientation.lock("landscape");
+      if(r && r.catch) r.catch(()=>{});
     }
-  }catch(e){}
-  try{
-    if(screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape");
   }catch(e){}
 }
 
-$("startBtn").addEventListener("click", async ()=>{ await goFullscreen(); startGame(); });
+function goFullscreen(){
+  if(STANDALONE){ lockLandscape(); return; }
+  if(isFullscreen()){ lockLandscape(); return; }
+
+  if(!fsAvailable()){
+    hint(IS_IOS
+      ? "아이폰은 전체화면을 지원하지 않습니다. 공유 → 홈 화면에 추가로 열어주세요."
+      : "이 브라우저는 전체화면을 지원하지 않습니다.");
+    return;
+  }
+
+  const el = document.documentElement;
+  let p;
+  try{
+    p = el.requestFullscreen ? el.requestFullscreen() : el.webkitRequestFullscreen();
+  }catch(err){
+    hint("전체화면 실패: " + (err && err.name ? err.name : "알 수 없음"));
+    return;
+  }
+  if(p && p.then){
+    p.then(lockLandscape)
+     .catch(err => hint("전체화면 거부됨: " + (err && err.name ? err.name : "알 수 없음")));
+  } else {
+    lockLandscape();
+  }
+}
+
+function exitFullscreen(){
+  try{
+    if(document.exitFullscreen) document.exitFullscreen();
+    else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }catch(e){}
+}
+
+function syncFullBtn(){
+  const b = $("cFull");
+  if(!b) return;
+  if(STANDALONE){ b.hidden = true; return; }
+  b.textContent = isFullscreen() ? "창 모드" : "전체화면";
+  b.setAttribute("aria-pressed", isFullscreen() ? "true" : "false");
+}
+document.addEventListener("fullscreenchange", syncFullBtn);
+document.addEventListener("webkitfullscreenchange", syncFullBtn);
+
+$("cFull").addEventListener("click", ()=>{
+  if(isFullscreen()) exitFullscreen();
+  else goFullscreen();
+});
+
+/* 시작 버튼 — 제스처가 살아 있는 동안 동기로 요청한다 */
+$("startBtn").addEventListener("click", ()=>{ goFullscreen(); startGame(); });
 $("againBtn").addEventListener("click", startGame);
 
 /* =========================================================
@@ -883,6 +958,8 @@ reset();
 paintHud();
 paintCfg();
 syncControls();
+syncFullBtn();
+if(!fsAvailable() && !STANDALONE) $("iosTip").hidden = false;
 checkOrient();
 
 /* 재배포 시 진행 상태 유지 */

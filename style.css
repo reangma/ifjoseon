@@ -35,7 +35,11 @@ body{
 }
 
 /* ---------- 무대 ---------- */
-#stage{position:fixed;inset:0;overflow:hidden;background:var(--ink)}
+#stage{
+  position:fixed;left:0;top:0;width:100%;
+  height:100vh;height:100dvh;       /* 주소창이 있어도 보이는 영역에 맞춘다 */
+  overflow:hidden;background:var(--ink);
+}
 
 .bg{
   position:absolute;inset:0;
@@ -63,7 +67,9 @@ body{
 #hud{
   position:absolute;top:0;left:0;right:0;
   display:flex;justify-content:space-between;align-items:flex-start;
-  gap:12px;padding:10px 12px;
+  gap:12px;
+  padding:calc(10px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+          10px calc(12px + env(safe-area-inset-left));
   pointer-events:none;z-index:6;
   opacity:0;transition:opacity .3s ease;
 }
@@ -246,7 +252,9 @@ body{
 
 /* ---------- 세로 차단 ---------- */
 #rotate{
-  position:fixed;inset:0;z-index:50;
+  position:fixed;left:0;top:0;width:100%;
+  height:100vh;height:100dvh;
+  z-index:50;
   display:none;flex-direction:column;justify-content:center;align-items:center;
   gap:22px;padding:28px;text-align:center;
   background:var(--ink);
@@ -270,7 +278,9 @@ body{
   position:absolute;left:0;right:0;bottom:0;z-index:6;
   display:flex;justify-content:flex-end;align-items:center;
   gap:clamp(8px,1.6vw,16px);
-  padding:0 clamp(10px,3vw,34px) clamp(7px,1.6vh,16px);
+  padding:0 calc(clamp(10px,3vw,34px) + env(safe-area-inset-right))
+          calc(clamp(7px,1.6vh,16px) + env(safe-area-inset-bottom))
+          calc(clamp(10px,3vw,34px) + env(safe-area-inset-left));
   pointer-events:none;
   opacity:0;transition:opacity .25s ease;
 }
@@ -342,3 +352,9 @@ body{
 .opt output{color:var(--gold);font-variant-numeric:tabular-nums;font-weight:700;margin-left:6px}
 .opt input[type=range]{width:min(100%,540px);accent-color:var(--gold)}
 .hint{margin:0;color:var(--muted);font-size:clamp(10px,1.5vw,14px)}
+
+
+/* 안내용 토스트 — 스탯 증감과 구분되는 중립 색 */
+#toast.hint{font-weight:500;color:var(--paper);font-size:clamp(11px,1.8vw,17px)}
+#iosTip{max-width:34ch;line-height:1.7}
+#iosTip b{color:var(--gold);font-weight:700}
