@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0a0806">
+<meta name="description" content="광해군이 되어 폐모살제, 강홍립 파병, 인조반정을 헤쳐 나가는 조선왕조 시뮬레이션.">
+<meta property="og:title" content="if조선">
+<meta property="og:description" content="체력·재정·평판을 관리하며 세 개의 분기점을 넘는 3분 역사 시뮬레이션.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="assets/title.webp">
+<link rel="icon" href="assets/title.webp">
+<title>if조선</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+  <div class="bg" id="bgA"></div>
+  <div class="bg" id="bgB"></div>
+  <img class="sprite" id="spL" alt="">
+  <img class="sprite" id="spR" alt="">
+  <img class="sprite center" id="spC" alt="">
+  <div id="hud">
+    <div class="panel stats" id="statPanel"></div>
+    <div class="panel" id="loyalPanel"></div>
+  </div>
+  <div id="toast"></div>
+  <div id="plate">
+    <div id="who"></div>
+    <div id="line"></div>
+    <div id="nudge"></div>
+  </div>
+  <div id="choices"></div>
+  <div class="veil on" id="title">
+    <img id="logo" alt="if조선">
+    <button class="btn" id="startBtn">시 작</button>
+    <div class="sub">가로 화면 · 화면을 눌러 진행</div>
+  </div>
+  <div class="veil" id="ending">
+    <div id="endKind"></div>
+    <div id="endTitle"></div>
+    <div id="endRec"></div>
+    <button class="btn" id="againBtn">다시 하기</button>
+  </div>
+</div>
+<div id="rotate">
+  <div class="icon"></div>
+  <p>기기를 가로로 돌려주세요</p>
+  <small>if조선은 가로 화면 전용입니다.<br>화면 회전 잠금이 켜져 있다면 꺼주세요.</small>
+  <button class="btn" id="fsBtn">전체화면으로 보기</button>
+</div>
+<script src="game.js"></script>
+</body>
+</html>
