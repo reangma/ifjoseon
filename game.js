@@ -794,8 +794,8 @@ function goFullscreen(){
 
   if(!fsAvailable()){
     hint(IS_IOS
-      ? "이 기기는 웹 전체화면을 지원하지 않습니다. 공유 → 홈 화면에 추가로 실행해 주세요."
-      : "이 브라우저는 전체화면을 지원하지 않습니다. 홈 화면에 추가로 실행해 주세요.");
+      ? "아이폰은 전체화면을 지원하지 않습니다. 공유 → 홈 화면에 추가로 열어주세요."
+      : "이 브라우저는 전체화면을 지원하지 않습니다.");
     return;
   }
 
@@ -959,14 +959,7 @@ paintHud();
 paintCfg();
 syncControls();
 syncFullBtn();
-/* 전체화면을 못 쓰는 기기에만 홈 화면 설치 안내를 띄운다 */
-if(!STANDALONE && !fsAvailable()){
-  const tip = $("iosTip");
-  tip.innerHTML = IS_IOS
-    ? "이 기기는 웹 전체화면을 지원하지 않습니다.<br><b>공유 → 홈 화면에 추가</b>로 실행하면 전체화면으로 열립니다."
-    : "<b>브라우저 메뉴 → 홈 화면에 추가</b>로 실행하면 전체화면으로 열립니다.";
-  tip.hidden = false;
-}
+if(!fsAvailable() && !STANDALONE) $("iosTip").hidden = false;
 checkOrient();
 
 /* 재배포 시 진행 상태 유지 */
